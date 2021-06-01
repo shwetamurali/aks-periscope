@@ -25,6 +25,14 @@ func main() {
 
 	clusterType := os.Getenv("CLUSTER_TYPE")
 
+	if utils.IsAzureStackCloud() {
+		err := utils.CopyCert()
+		if err != nil {
+			log.Printf("xxxxxxxx: %+v", err)
+			panic("Error copying cert")
+		}
+	}
+
 	collectors := []interfaces.Collector{}
 	containerLogsCollector := collector.NewContainerLogsCollector(exporter)
 	networkOutboundCollector := collector.NewNetworkOutboundCollector(5, exporter)

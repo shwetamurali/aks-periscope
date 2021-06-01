@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -10,6 +11,56 @@ import (
 	"path/filepath"
 	"strings"
 )
+
+type Azure struct {
+	cloud string
+}
+
+type AzureStackCloud struct {
+	storageEndpointSuffix string
+}
+
+// IsAzureStackCloud returns true if the application is running on Azure Stack Cloud
+func IsAzureStackCloud() bool {
+	azureFile, err := RunCommandOnHost("cat", "/etc/kubernetes/azure.json")
+	if err != nil {
+		return false
+	}
+	var azure Azure
+	err = json.Unmarshal([]byte(azureFile), &azure)
+	if err != nil {
+		return false
+	}
+	cloud := azure.cloud
+	return strings.ToUpper(cloud) == "AZURESTACKCLOUD"
+}
+
+// CopyCert saves the cert content to a new file inside the container
+func CopyCert() error {
+	cert, err := RunCommandOnHost("cat", "/etc/ssl/certs/azsCertificate.pem")
+	if err != nil {
+		return fmt.Errorf("Failed to retrieve cert content: %+v", err)
+	}
+	WriteToFile("/etc/ssl/certs/azsCertificate.pem", cert)
+	return nil
+}
+
+// GetStorageEndpointSuffix returns the SES url from the JSON file as a string
+func GetStorageEndpointSuffix() string {
+	if IsAzureStackCloud() {
+		ascFile, err := RunCommandOnHost("cat", "/etc/kubernetes/azurestackcloud.json")
+		if err != nil {
+			return "core.windows.net"
+		}
+		var azurestackcloud AzureStackCloud
+		err = json.Unmarshal([]byte(ascFile), &azurestackcloud)
+		if err != nil {
+			return "core.windows.net"
+		}
+		return azurestackcloud.storageEndpointSuffix
+	}
+	return "core.windows.net"
+}
 
 // GetHostName get host name
 func GetHostName() (string, error) {
